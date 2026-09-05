@@ -82,7 +82,7 @@ export default function LandingPage() {
             {t('infrastructureSub')}
           </p>
           <p className="mt-6 text-lg leading-8 text-gray-600">
-            We don't just collect complaints. The JanSetu AI platform demonstrates how Digital Public Infrastructure can convert unstructured feedback into actionable policies.
+            We don&apos;t just collect complaints. The JanSetu AI platform demonstrates how Digital Public Infrastructure can convert unstructured feedback into actionable policies.
           </p>
         </div>
         

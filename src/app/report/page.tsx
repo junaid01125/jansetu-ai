@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Camera, Video, Upload, MapPin, Building2, CheckCircle2, ShieldCheck, AlertTriangle, ArrowRight, Loader2, BrainCircuit } from 'lucide-react';
+import { Video, Upload, Building2, CheckCircle2, ShieldCheck, ArrowRight, Loader2, BrainCircuit } from 'lucide-react';
 import { simulateAIAnalysis } from '@/lib/services/aiMock';
 import { AIAnalysis, Report } from '@/lib/types';
 import { useReports } from '@/lib/ReportContext';
@@ -219,7 +219,7 @@ export default function ReportIssuePage() {
                     {analysisResult.priorityScore > 75 && <span className="text-[10px] bg-red-100 text-red-700 font-bold px-2 py-1 rounded inline-flex animate-bounce">URGENT</span>}
                   </div>
                   <div className="text-5xl font-black text-gray-900 mb-3">{analysisResult.priorityScore}<span className="text-xl text-gray-400 font-medium tracking-normal">/100</span></div>
-                  <p className="text-sm text-gray-600 font-medium">"{analysisResult.reasoning}"</p>
+                  <p className="text-sm text-gray-600 font-medium">&quot;{analysisResult.reasoning}&quot;</p>
                 </div>
               </div>
 

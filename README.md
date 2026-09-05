@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JanSetu AI
 
-## Getting Started
+JanSetu AI is a civic issue reporting and policy intelligence platform. It helps citizens report community infrastructure problems and gives government teams a clearer way to understand, prioritize, and act on them.
 
-First, run the development server:
+Reports can be submitted as text or as photo/video input. JanSetu AI analyzes the report, identifies the issue category, estimates its severity, assigns it to the relevant department, and produces a priority score. Related reports can increase the urgency of an issue so repeated problems are easier to spot.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## What it includes
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Citizen reporting with text, image, and video input
+- AI-assisted issue classification and priority scoring
+- Department assignment based on the reported problem
+- A government dashboard with report status tracking and a map view
+- Policy insights for identifying infrastructure gaps and demand hotspots
+- English and Hindi language support
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Application flow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. A citizen describes a community issue or uploads media.
+2. JanSetu AI analyzes the report and shows the extracted issue, severity, department, and priority score.
+3. The citizen reviews the result and submits it to the government workflow.
+4. Government teams update the report as it moves from submission to resolution.
+5. Policymakers use the aggregated reports to identify recurring problems and areas that need attention.
 
-## Learn More
+## Example scenarios
 
-To learn more about Next.js, take a look at the following resources:
+### A dangerous pothole near a school
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+A parent reports a large pothole that is making it difficult for school buses and two-wheelers to pass safely. JanSetu AI identifies the issue as a road infrastructure problem, marks it as high priority, and routes it to the roads department. When similar reports are received from nearby residents, the combined pattern highlights the location as an infrastructure hotspot.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### A leaking water pipe
 
-## Deploy on Vercel
+A resident submits a video showing water continuously leaking from a roadside pipe. JanSetu AI recognizes the issue as a water and sanitation concern, estimates its severity, and assigns it to the appropriate department. The report can then be tracked from submission through inspection and resolution.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Uncollected waste in a busy area
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Several people report garbage accumulating near a market. JanSetu AI groups the reports around the same concern, identifies the repeated demand, and helps sanitation teams see that the issue affects more people than a single complaint suggests.
+
+### A broken streetlight
+
+A citizen reports a streetlight that has stopped working on an important route. JanSetu AI classifies it as an electricity issue and records the report for departmental action. A lower individual severity does not prevent policymakers from seeing a larger pattern if several nearby lights are reported over time.
+
+## Why JanSetu AI matters
+
+Citizen feedback is often detailed but difficult to organize at scale. JanSetu AI turns descriptions, images, and videos into structured information that can be reviewed by the right teams. It helps separate urgent problems from routine requests, reveals repeated issues, and gives policymakers evidence for deciding where attention and resources are most needed.
+

@@ -13,21 +13,18 @@ interface ReportContextType {
 const ReportContext = createContext<ReportContextType | undefined>(undefined);
 
 export function ReportProvider({ children }: { children: React.ReactNode }) {
-  const [reports, setReports] = useState<Report[]>([]);
-
-  // Load from local storage on mount, or fallback to mock data
-  useEffect(() => {
+  const [reports, setReports] = useState<Report[]>(() => {
+    if (typeof window === "undefined") return mockReports;
     const saved = localStorage.getItem("jansetu_reports");
-    if (saved) {
-      try {
-        setReports(JSON.parse(saved));
-      } catch (e) {
-        setReports(mockReports);
-      }
-    } else {
-      setReports(mockReports);
+    if (!saved) return mockReports;
+    try {
+      return JSON.parse(saved) as Report[];
+    } catch {
+      return mockReports;
     }
-    
+  });
+
+  useEffect(() => {
     // Listen for cross-tab changes
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "jansetu_reports" && e.newValue) {
@@ -37,11 +34,6 @@ export function ReportProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
-
-  const saveReports = (newReports: Report[]) => {
-    setReports(newReports);
-    localStorage.setItem("jansetu_reports", JSON.stringify(newReports));
-  };
 
   const addReport = (report: Report) => {
     setReports((prev) => {

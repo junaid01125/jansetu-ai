@@ -11,7 +11,7 @@ const Marker = dynamic(() => import('react-leaflet').then(m => m.Marker), { ssr:
 const Popup = dynamic(() => import('react-leaflet').then(m => m.Popup), { ssr: false });
 
 export default function Map({ reports }: { reports: Report[] }) {
-  const [L, setL] = useState<any>(null);
+  const [L, setL] = useState<typeof import('leaflet') | null>(null);
 
   useEffect(() => {
     import('leaflet').then((leaflet) => {

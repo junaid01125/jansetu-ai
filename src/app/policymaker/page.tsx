@@ -3,8 +3,7 @@
 import { useReports } from '@/lib/ReportContext';
 import { useLanguage } from '@/lib/LanguageContext';
 import { mockClusters } from '@/lib/data/mockData';
-import { BrainCircuit, TrendingUp, AlertTriangle, Lightbulb, MapPin, BarChart3, Activity } from 'lucide-react';
-import dynamic from 'next/dynamic';
+import { BrainCircuit, TrendingUp, AlertTriangle, Lightbulb, BarChart3 } from 'lucide-react';
 
 export default function PolicymakerDashboard() {
   const { reports } = useReports();
@@ -64,7 +63,7 @@ export default function PolicymakerDashboard() {
               <div>
                 <h3 className="font-bold text-lg text-gray-900">Priority Intervention: Road Infrastructure</h3>
                 <p className="text-gray-700 mt-2 text-sm leading-relaxed">
-                  "Zone 4 has a high concentration of road-related citizen reports combined with high population density."
+                  &quot;Zone 4 has a high concentration of road-related citizen reports combined with high population density.&quot;
                 </p>
               </div>
             </div>

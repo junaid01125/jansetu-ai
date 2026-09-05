@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { useReports } from '@/lib/ReportContext';
 import { useLanguage } from '@/lib/LanguageContext';
-import { AlertCircle, Clock, CheckCircle2, TrendingUp, Filter, Search, Building2, MapPin } from 'lucide-react';
+import { AlertCircle, Clock, CheckCircle2, TrendingUp, Search, Building2, MapPin } from 'lucide-react';
+import { IssueStatus } from '@/lib/types';
 import Map from '@/components/ui/Map';
 
 export default function GovernmentDashboard() {
   const { reports, updateReportStatus } = useReports();
   const { t } = useLanguage();
-  const [filter, setFilter] = useState('All');
+  const [currentTime] = useState(() => Date.now());
 
   // Stats
   const total = reports.length;
@@ -23,7 +24,7 @@ export default function GovernmentDashboard() {
     else if (currentStatus === 'Under Review') nextStatus = 'Work Initiated';
     else if (currentStatus === 'Work Initiated') nextStatus = 'Resolved';
     else return;
-    updateReportStatus(id, nextStatus as any);
+    updateReportStatus(id, nextStatus as IssueStatus);
   };
 
   return (
@@ -111,7 +112,7 @@ export default function GovernmentDashboard() {
         </div>
 
         <div className="w-2/3 p-4 relative flex flex-col">
-          {reports.some(r => r.createdAt > new Date(Date.now() - 1000 * 60).toISOString() && (r.aiAnalysis?.priorityScore || 0) > 80) && (
+          {reports.some(r => r.createdAt > new Date(currentTime - 1000 * 60).toISOString() && (r.aiAnalysis?.priorityScore || 0) > 80) && (
             <div className="absolute top-8 right-8 z-10 bg-white p-4 rounded-xl shadow-xl flex gap-4 max-w-sm border-l-4 border-red-500">
               <div className="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center flex-shrink-0">
                 <AlertCircle className="w-5 h-5" />
