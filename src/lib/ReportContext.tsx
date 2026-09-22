@@ -1,54 +1,48 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { collection, doc, onSnapshot, orderBy, query, setDoc } from "firebase/firestore";
 import { Report } from "./types";
-import { mockReports } from "./data/mockData";
+import { useAuth } from "./AuthContext";
+import { firestore } from "./firebase";
 
 interface ReportContextType {
   reports: Report[];
-  addReport: (report: Report) => void;
-  updateReportStatus: (id: string, status: Report["status"]) => void;
+  addReport: (report: Report) => Promise<void>;
+  updateReportStatus: (id: string, status: Report["status"]) => Promise<void>;
 }
 
 const ReportContext = createContext<ReportContextType | undefined>(undefined);
 
 export function ReportProvider({ children }: { children: React.ReactNode }) {
-  const [reports, setReports] = useState<Report[]>(() => {
-    if (typeof window === "undefined") return mockReports;
-    const saved = localStorage.getItem("jansetu_reports");
-    if (!saved) return mockReports;
-    try {
-      return JSON.parse(saved) as Report[];
-    } catch {
-      return mockReports;
-    }
-  });
+  const { user, isLoading } = useAuth();
+  const [userReports, setUserReports] = useState<Report[]>([]);
+
+  const reports = user ? userReports : [];
 
   useEffect(() => {
-    // Listen for cross-tab changes
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "jansetu_reports" && e.newValue) {
-        setReports(JSON.parse(e.newValue));
-      }
-    };
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+    if (isLoading) return;
+    if (!user) return;
 
-  const addReport = (report: Report) => {
-    setReports((prev) => {
-      const next = [report, ...prev];
-      localStorage.setItem("jansetu_reports", JSON.stringify(next));
-      return next;
-    });
+    const reportsQuery = query(collection(firestore, "users", user.id, "reports"), orderBy("createdAt", "desc"));
+    return onSnapshot(reportsQuery, (snapshot) => {
+      setUserReports(snapshot.docs.map((report) => report.data() as Report));
+    }, () => setUserReports([]));
+  }, [isLoading, user]);
+
+  const addReport = async (report: Report) => {
+    if (!user) throw new Error("Please sign in before submitting a report");
+    const firestoreReport = report.mediaUrl ? report : Object.fromEntries(
+      Object.entries(report).filter(([key]) => key !== "mediaUrl")
+    ) as Report;
+    await setDoc(doc(firestore, "users", user.id, "reports", report.id), firestoreReport);
   };
 
-  const updateReportStatus = (id: string, status: Report["status"]) => {
-    setReports((prev) => {
-      const next = prev.map((r) => (r.id === id ? { ...r, status, updatedAt: new Date().toISOString() } : r));
-      localStorage.setItem("jansetu_reports", JSON.stringify(next));
-      return next;
-    });
+  const updateReportStatus = async (id: string, status: Report["status"]) => {
+    if (!user) return;
+    const report = userReports.find((candidate) => candidate.id === id);
+    if (!report) return;
+    await setDoc(doc(firestore, "users", user.id, "reports", id), { ...report, status, updatedAt: new Date().toISOString() });
   };
 
   return (

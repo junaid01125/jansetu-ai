@@ -2,6 +2,12 @@ export type IssueStatus = 'Submitted' | 'AI Analyzed' | 'Department Assigned' | 
 
 export type SeverityLevel = 'Low' | 'Medium' | 'High' | 'Critical';
 
+export interface PublicUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface PriorityFactor {
   factor: string;
   score: number;

@@ -1,5 +1,21 @@
 # JanSetu AI
 
+## Deployment
+
+This app uses Firebase Authentication and Cloud Firestore for users and reports. It does not use the local SQLite files in `data/` at runtime.
+
+Set these environment variables in the hosting provider before building:
+
+- `NEXT_PUBLIC_FIREBASE_API_KEY`: Firebase web app API key
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`: Firebase auth domain
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`: Firebase project ID
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`: Firebase storage bucket
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`: Firebase sender ID
+- `NEXT_PUBLIC_FIREBASE_APP_ID`: Firebase web app ID
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`: Google Maps browser key
+
+Use `npm run build` as the build command and `npm run start` as the start command. Deploy `firestore.rules` to the Firebase project before accepting user reports.
+
 JanSetu AI is a civic issue reporting and policy intelligence platform. It helps citizens report community infrastructure problems and gives government teams a clearer way to understand, prioritize, and act on them.
 
 Reports can be submitted as text or as photo/video input. JanSetu AI analyzes the report, identifies the issue category, estimates its severity, assigns it to the relevant department, and produces a priority score. Related reports can increase the urgency of an issue so repeated problems are easier to spot.
