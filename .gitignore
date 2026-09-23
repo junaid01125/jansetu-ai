@@ -33,7 +33,6 @@ yarn-error.log*
 # env files and local secrets
 .env
 .env.*
-!.env.example
 firebase-config*.json
 service-account*.json
 *-firebase-adminsdk-*.json
