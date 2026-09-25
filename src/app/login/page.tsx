@@ -14,26 +14,32 @@ const benefits = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, signInWithGoogle, register } = useAuth();
+  const { signIn, resetPassword, signInWithGoogle, register } = useAuth();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    setNotice("");
     setIsSubmitting(true);
-    const message = mode === "login"
+    const result = mode === "login"
       ? await signIn(email, password)
       : await register(name, email, password);
     setIsSubmitting(false);
 
-    if (message) {
-      setError(message);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    if (result.notice) {
+      setNotice(result.notice);
       return;
     }
     router.push("/dashboard");
@@ -41,14 +47,33 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setError("");
+    setNotice("");
     setIsSubmitting(true);
-    const message = await signInWithGoogle();
+    const result = await signInWithGoogle();
     setIsSubmitting(false);
-    if (message) {
-      setError(message);
+    if (result.error) {
+      setError(result.error);
       return;
     }
     router.push("/dashboard");
+  };
+
+  const handleForgotPassword = async () => {
+    setError("");
+    setNotice("");
+    if (!email.trim()) {
+      setError("Enter your email address first.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const result = await resetPassword(email);
+    setIsSubmitting(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setNotice(result.notice || "Check your email for a password reset link.");
   };
 
   return (
@@ -161,11 +186,26 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </span>
+                {mode === "login" && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={isSubmitting}
+                    className="mt-2 text-sm font-semibold text-cyan-700 hover:text-cyan-800 disabled:cursor-wait disabled:opacity-60 dark:text-cyan-400 dark:hover:text-cyan-300"
+                  >
+                    Forgot password?
+                  </button>
+                )}
               </label>
 
               {error && (
                 <p role="alert" className="rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/50 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
                   {error}
+                </p>
+              )}
+              {notice && (
+                <p role="status" className="rounded-xl bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-900/50 px-4 py-3 text-sm font-medium text-cyan-800 dark:text-cyan-200">
+                  {notice}
                 </p>
               )}
               <button

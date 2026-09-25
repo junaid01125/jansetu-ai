@@ -1,16 +1,22 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { createUserWithEmailAndPassword, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut as firebaseSignOut, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut as firebaseSignOut, updateProfile } from "firebase/auth";
 import type { PublicUser } from "./types";
 import { firebaseAuth } from "./firebase";
+
+interface AuthResult {
+  error: string | null;
+  notice: string | null;
+}
 
 interface AuthContextValue {
   user: PublicUser | null;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<string | null>;
-  signInWithGoogle: () => Promise<string | null>;
-  register: (name: string, email: string, password: string) => Promise<string | null>;
+  signIn: (email: string, password: string) => Promise<AuthResult>;
+  resetPassword: (email: string) => Promise<AuthResult>;
+  signInWithGoogle: () => Promise<AuthResult>;
+  register: (name: string, email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
 }
 
@@ -52,10 +58,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
-      return null;
+      const credential = await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
+      if (!credential.user.emailVerified) {
+        await sendEmailVerification(credential.user);
+        await firebaseSignOut(firebaseAuth);
+        return { error: null, notice: "Please verify your email address. We sent you a new verification link." };
+      }
+      return { error: null, notice: null };
     } catch (error) {
-      return firebaseErrorMessage(error);
+      return { error: firebaseErrorMessage(error), notice: null };
     }
   };
 
@@ -63,24 +74,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const credential = await createUserWithEmailAndPassword(firebaseAuth, email.trim(), password);
       await updateProfile(credential.user, { displayName: name.trim() });
-      setUser({ id: credential.user.uid, name: name.trim(), email: credential.user.email || email.trim() });
-      return null;
+      await sendEmailVerification(credential.user);
+      await firebaseSignOut(firebaseAuth);
+      return { error: null, notice: "Account created. Check your email and verify your address before signing in." };
     } catch (error) {
-      return firebaseErrorMessage(error);
+      return { error: firebaseErrorMessage(error), notice: null };
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(firebaseAuth, email.trim());
+      return { error: null, notice: "If an account exists for this email, a password reset link has been sent." };
+    } catch (error) {
+      return { error: firebaseErrorMessage(error), notice: null };
     }
   };
 
   const signInWithGoogle = async () => {
     try {
       await signInWithPopup(firebaseAuth, new GoogleAuthProvider());
-      return null;
+      return { error: null, notice: null };
     } catch (error) {
       const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
       if (code.includes("popup-blocked") || code.includes("popup-timeout")) {
-        await signInWithRedirect(firebaseAuth, new GoogleAuthProvider());
-        return null;
+        try {
+          await signInWithRedirect(firebaseAuth, new GoogleAuthProvider());
+          return { error: null, notice: null };
+        } catch (redirectError) {
+          return { error: firebaseErrorMessage(redirectError), notice: null };
+        }
       }
-      return firebaseErrorMessage(error);
+      return { error: firebaseErrorMessage(error), notice: null };
     }
   };
 
@@ -88,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await firebaseSignOut(firebaseAuth);
   };
 
-  return <AuthContext.Provider value={{ user, isLoading, signIn, signInWithGoogle, register, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, isLoading, signIn, resetPassword, signInWithGoogle, register, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
