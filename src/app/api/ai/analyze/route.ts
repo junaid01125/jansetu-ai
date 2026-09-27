@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { simulateAIAnalysis } from "@/lib/services/aiMock";
 import type { AIAnalysis, Report } from "@/lib/types";
 
+const priorityRubric = [
+  { factor: "Severity", max: 40 },
+  { factor: "People affected", max: 25 },
+  { factor: "Immediate safety/urgency", max: 20 },
+  { factor: "Repeated local reports", max: 15 },
+] as const;
+
 const fallbackAnalysis = async (reportText: string, mediaType: string, existingReports: Report[]) =>
   simulateAIAnalysis(reportText, mediaType, existingReports);
 
@@ -15,11 +22,20 @@ function parseAnalysis(value: unknown): AIAnalysis | null {
     (severity !== "Low" && severity !== "Medium" && severity !== "High" && severity !== "Critical") ||
     typeof analysis.confidence !== "number" ||
     typeof analysis.assignedDepartmentId !== "string" ||
-    typeof analysis.priorityScore !== "number" ||
     typeof analysis.affectedPopulation !== "number" ||
     typeof analysis.reasoning !== "string" ||
     !Array.isArray(analysis.priorityFactors)
   ) return null;
+
+  const factors = priorityRubric.map((rubricFactor) => {
+    const factor = analysis.priorityFactors?.find((candidate) =>
+      !!candidate && typeof candidate === "object" && candidate.factor === rubricFactor.factor
+    );
+    if (!factor || typeof factor.score !== "number" || !Number.isFinite(factor.score)) return null;
+    return { factor: rubricFactor.factor, score: Math.max(0, Math.min(rubricFactor.max, Math.round(factor.score))), max: rubricFactor.max };
+  });
+  if (factors.some((factor) => factor === null)) return null;
+  const priorityFactors = factors.filter((factor): factor is NonNullable<typeof factor> => factor !== null);
 
   return {
     issueCategory: analysis.issueCategory,
@@ -27,12 +43,10 @@ function parseAnalysis(value: unknown): AIAnalysis | null {
     severity,
     confidence: Math.max(0, Math.min(1, analysis.confidence)),
     assignedDepartmentId: analysis.assignedDepartmentId,
-    priorityScore: Math.max(0, Math.min(100, Math.round(analysis.priorityScore))),
+    priorityScore: priorityFactors.reduce((total, factor) => total + factor.score, 0),
     affectedPopulation: Math.max(0, Math.round(analysis.affectedPopulation)),
     reasoning: analysis.reasoning,
-    priorityFactors: analysis.priorityFactors.filter((factor): factor is { factor: string; score: number; max: number } =>
-      !!factor && typeof factor === "object" && typeof factor.factor === "string" && typeof factor.score === "number" && typeof factor.max === "number"
-    ),
+    priorityFactors,
   };
 }
 
@@ -54,7 +68,7 @@ export async function POST(request: Request) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system_instruction: { parts: [{ text: "You classify civic issue reports for Hyderabad municipal services. Return only valid JSON matching the requested schema." }] },
+          system_instruction: { parts: [{ text: "You classify civic issue reports for Hyderabad municipal services. Return only valid JSON matching the requested schema. Score each priority factor using the rubric: Severity (0-40), People affected (0-25), Immediate safety/urgency (0-20), Repeated local reports (0-15). Use exactly these factor names and max values. Assess People affected from the report; assess urgency from explicit immediate danger or time sensitivity; assess repeated reports only from the provided similar reports. The priority score is the sum of the four factor scores, so do not invent a separate total." }] },
           contents: [{ parts: [{ text: `Analyze this civic report: ${reportText}\nMedia type: ${mediaType}\nSimilar reports: ${existingReports.slice(0, 20).map((report) => report.aiAnalysis?.issueCategory).filter(Boolean).join(", ") || "none"}` }] }],
           generationConfig: {
             temperature: 0.2,
@@ -62,9 +76,9 @@ export async function POST(request: Request) {
             responseSchema: {
               type: "OBJECT",
               properties: {
-                issueCategory: { type: "STRING" }, issueSubcategory: { type: "STRING" }, severity: { type: "STRING", enum: ["Low", "Medium", "High", "Critical"] }, confidence: { type: "NUMBER" }, assignedDepartmentId: { type: "STRING" }, priorityScore: { type: "INTEGER" }, affectedPopulation: { type: "INTEGER" }, reasoning: { type: "STRING" }, priorityFactors: { type: "ARRAY", items: { type: "OBJECT", properties: { factor: { type: "STRING" }, score: { type: "NUMBER" }, max: { type: "NUMBER" } }, required: ["factor", "score", "max"] } },
+                issueCategory: { type: "STRING" }, issueSubcategory: { type: "STRING" }, severity: { type: "STRING", enum: ["Low", "Medium", "High", "Critical"] }, confidence: { type: "NUMBER" }, assignedDepartmentId: { type: "STRING" }, affectedPopulation: { type: "INTEGER" }, reasoning: { type: "STRING" }, priorityFactors: { type: "ARRAY", items: { type: "OBJECT", properties: { factor: { type: "STRING" }, score: { type: "NUMBER" }, max: { type: "NUMBER" } }, required: ["factor", "score", "max"] } },
               },
-              required: ["issueCategory", "issueSubcategory", "severity", "confidence", "assignedDepartmentId", "priorityScore", "affectedPopulation", "reasoning", "priorityFactors"],
+              required: ["issueCategory", "issueSubcategory", "severity", "confidence", "assignedDepartmentId", "affectedPopulation", "reasoning", "priorityFactors"],
             },
           },
         }),

@@ -32,6 +32,13 @@ type CaptureMode = 'text' | 'audio' | 'photo' | 'video';
 type SpeechMode = 'auto' | 'en' | 'hi' | 'te';
 type SpeechRecognitionConstructor = new () => SpeechRecognition;
 
+const priorityFactorDescriptions: Record<string, string> = {
+  Severity: 'How serious the reported issue is.',
+  'People affected': 'Estimated reach or number of residents impacted.',
+  'Immediate safety/urgency': 'Evidence of immediate danger or time-sensitive harm.',
+  'Repeated local reports': 'Matching reports already recorded in this area.',
+};
+
 interface SpeechRecognition extends EventTarget {
   lang: string;
   continuous: boolean;
@@ -774,6 +781,29 @@ export default function ReportIssuePage() {
                   <p className="text-sm text-gray-600 dark:text-slate-300 font-medium">&quot;{analysisResult.reasoning}&quot;</p>
                 </div>
               </div>
+
+              <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900" aria-labelledby="priority-breakdown-title">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 id="priority-breakdown-title" className="font-bold text-gray-900 dark:text-white">How this score is calculated</h3>
+                  <span className="text-xs font-medium text-gray-500 dark:text-slate-400">Weighted rubric · 100 points maximum</span>
+                </div>
+                <p className="mt-1 text-sm text-gray-600 dark:text-slate-400">The priority score adds the points assigned to each factor. The AI estimates these from your report and matching reports on file.</p>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  {analysisResult.priorityFactors.map((factor) => (
+                    <div key={factor.factor}>
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="font-semibold text-gray-800 dark:text-slate-200">{factor.factor}</span>
+                        <span className="shrink-0 font-bold tabular-nums text-gray-900 dark:text-white">{factor.score}/{factor.max}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">{priorityFactorDescriptions[factor.factor] || 'AI-assessed contribution to the priority score.'}</p>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-slate-800">
+                        <div className="h-full rounded-full bg-cyan-600 dark:bg-cyan-400" style={{ width: `${factor.max > 0 ? Math.min(100, (factor.score / factor.max) * 100) : 0}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-slate-800 dark:text-slate-400">This is a triage aid for routing reports, not a final judgment. A person should review urgent or uncertain cases.</p>
+              </section>
 
               <div className="mt-8 flex gap-4 justify-end">
                 <button onClick={() => setStep('idle')} className="px-6 py-3 rounded-xl font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">

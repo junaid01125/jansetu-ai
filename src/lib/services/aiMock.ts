@@ -10,38 +10,39 @@ export const simulateAIAnalysis = async (reportText: string, mediaType: string, 
   let category = 'Other';
   let subCategory = 'General Issue';
   let severity: 'Low' | 'Medium' | 'High' | 'Critical' = 'Medium';
-  let score = 50;
   let department = 'dept-general';
   
   if (text.includes('pothole') || text.includes('road')) {
     category = 'Roads & Transport';
     subCategory = 'Large Pothole';
     severity = text.includes('large') || text.includes('huge') ? 'High' : 'Medium';
-    score = severity === 'High' ? 88 : 60;
     department = 'dept-roads';
   } else if (text.includes('garbage') || text.includes('trash') || text.includes('waste')) {
     category = 'Waste Management';
     subCategory = 'Garbage Accumulation';
     severity = 'Medium';
-    score = 75;
     department = 'dept-sanitation';
   } else if (text.includes('water') || text.includes('drain') || text.includes('pipe')) {
     category = 'Water & Sanitation';
     subCategory = 'Water Leakage / Drainage';
     severity = 'High';
-    score = 82;
     department = 'dept-water';
   } else if (text.includes('light') || text.includes('electric')) {
     category = 'Electricity';
     subCategory = 'Broken Streetlight';
     severity = 'Low';
-    score = 40;
     department = 'dept-electricity';
   }
   
   const similarReportsCount = existingReports.filter(r => r.aiAnalysis?.issueCategory === category).length;
-  // Dynamically increase score for each similar report on file to simulate clustering urgency
-  const finalScore = Math.min(100, score + similarReportsCount);
+  const affectedPopulation = /\b(many|hundreds|neighborhood|community|crowd|several|multiple)\b/.test(text) ? 60 : 20;
+  const priorityFactors = [
+    { factor: 'Severity', score: { Low: 10, Medium: 20, High: 30, Critical: 40 }[severity], max: 40 },
+    { factor: 'People affected', score: Math.min(25, Math.ceil(affectedPopulation / 10)), max: 25 },
+    { factor: 'Immediate safety/urgency', score: /\b(danger|dangerous|urgent|immediate|accident|injur|fire|flood)\w*\b/.test(text) ? 20 : severity === 'High' ? 12 : 5, max: 20 },
+    { factor: 'Repeated local reports', score: Math.min(15, similarReportsCount * 3), max: 15 },
+  ];
+  const priorityScore = priorityFactors.reduce((total, factor) => total + factor.score, 0);
   
   return {
     issueCategory: category,
@@ -49,16 +50,11 @@ export const simulateAIAnalysis = async (reportText: string, mediaType: string, 
     severity,
     confidence: 0.85 + (Math.random() * 0.1),
     assignedDepartmentId: department,
-    priorityScore: finalScore,
-    affectedPopulation: Math.floor(Math.random() * 200) + 20,
+    priorityScore,
+    affectedPopulation,
     reasoning: similarReportsCount > 0 
       ? `The AI determined this is a ${severity.toLowerCase()} severity issue relating to ${category.toLowerCase()}. Found ${similarReportsCount} prior similar reports, increasing priority.` 
       : `The AI determined this is a ${severity.toLowerCase()} severity issue relating to ${category.toLowerCase()} based on the visual and text cues provided.`,
-    priorityFactors: [
-      { factor: 'Severity', score: severity === 'High' ? 25 : 15, max: 30 },
-      { factor: 'Affected population', score: 15, max: 20 },
-      { factor: 'Repeated reports (Dynamic)', score: Math.min(15, (finalScore > 70 ? 10 : 2) + similarReportsCount), max: 15 },
-      { factor: 'Urgency', score: finalScore > 80 ? 4 : 2, max: 5 },
-    ]
+    priorityFactors,
   };
 };
