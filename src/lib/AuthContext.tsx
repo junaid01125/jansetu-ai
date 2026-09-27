@@ -43,7 +43,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const firebaseErrorMessage = (error: unknown) => {
     const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
     console.error("Firebase authentication error:", code || error);
-    if (code.includes("invalid-credential") || code.includes("wrong-password") || code.includes("user-not-found")) return "The email or password is incorrect.";
+    if (code.includes("user-not-found")) return "No account exists for this email address. Check the address or create an account.";
+    if (code.includes("invalid-credential") || code.includes("wrong-password")) return "The email or password is incorrect.";
     if (code.includes("email-already-in-use")) return "An account with this email already exists.";
     if (code.includes("weak-password")) return "Your password must be at least 6 characters.";
     if (code.includes("invalid-email")) return "Please enter a valid email address.";
@@ -76,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await updateProfile(credential.user, { displayName: name.trim() });
       await sendEmailVerification(credential.user);
       await firebaseSignOut(firebaseAuth);
-      return { error: null, notice: "Account created. Check your email and verify your address before signing in." };
+      return { error: null, notice: "Registration is pending email verification. We sent a verification link to this address. The account cannot be used until you verify it; check that the address is correct and look in your spam folder if the message does not arrive." };
     } catch (error) {
       return { error: firebaseErrorMessage(error), notice: null };
     }
