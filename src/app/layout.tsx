@@ -6,6 +6,7 @@ import { LanguageProvider } from '@/lib/LanguageContext';
 import { AuthProvider } from '@/lib/AuthContext';
 import { ThemeProvider } from '@/lib/ThemeContext';
 import Navbar from '@/components/ui/Navbar';
+import HelpChat from '@/components/ui/HelpChat';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -30,6 +31,7 @@ export default function RootLayout({
                 <main className="flex-1 flex flex-col">
                   {children}
                 </main>
+                <HelpChat />
               </ReportProvider>
             </AuthProvider>
           </LanguageProvider>
