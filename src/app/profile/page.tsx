@@ -1,19 +1,53 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { ArrowRight, CheckCircle2, Clock3, FileText, Loader2, Plus, ShieldAlert, TriangleAlert } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, CheckCircle2, Clock3, FileText, Loader2, Plus, ShieldAlert, Trash2, TriangleAlert } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { useReports } from "@/lib/ReportContext";
 
 export default function ProfilePage() {
-  const { user, isLoading: authLoading } = useAuth();
-  const { reports } = useReports();
+  const router = useRouter();
+  const { user, isLoading: authLoading, deleteAccount } = useAuth();
+  const { reports, deleteReport } = useReports();
+  const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [accountPassword, setAccountPassword] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const stats = useMemo(() => ({
     total: reports.length,
     resolved: reports.filter((report) => report.status === "Resolved").length,
     urgent: reports.filter((report) => (report.aiAnalysis?.priorityScore || 0) > 80).length,
   }), [reports]);
+
+  const handleDeleteReport = async (reportId: string) => {
+    if (!window.confirm(`Permanently delete report ${reportId}?`)) return;
+    setDeletingReportId(reportId);
+    setDeleteError("");
+    try {
+      await deleteReport(reportId);
+    } catch {
+      setDeleteError("We couldn't delete this report from the database. Please try again.");
+    } finally {
+      setDeletingReportId(null);
+    }
+  };
+
+  const handleDeleteAccount = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!window.confirm("Permanently delete your account and all of its reports? This cannot be undone.")) return;
+    setIsDeletingAccount(true);
+    setDeleteError("");
+    const result = await deleteAccount(accountPassword);
+    setIsDeletingAccount(false);
+    if (result.error) {
+      setDeleteError(result.error);
+      return;
+    }
+    router.replace("/");
+  };
 
   if (authLoading) {
     return (
@@ -84,6 +118,12 @@ export default function ProfilePage() {
             </span>
           </div>
 
+          {deleteError && (
+            <p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+              {deleteError}
+            </p>
+          )}
+
           {reports.length === 0 ? (
             <div className="py-16 text-center">
               <FileText className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
@@ -110,13 +150,64 @@ export default function ProfilePage() {
                     </h3>
                     <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{report.description}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                    <Clock3 className="h-4 w-4" />
-                    {new Date(report.createdAt).toLocaleDateString()}
+                  <div className="flex shrink-0 items-center justify-between gap-5 sm:justify-end">
+                    <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                      <Clock3 className="h-4 w-4" />
+                      {new Date(report.createdAt).toLocaleDateString()}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteReport(report.id)}
+                      disabled={deletingReportId === report.id || isDeletingAccount}
+                      aria-label={`Delete report ${report.id}`}
+                      title="Delete report permanently"
+                      className="rounded-lg p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-700 disabled:cursor-wait disabled:opacity-50 dark:text-slate-400 dark:hover:bg-red-950/50 dark:hover:text-red-300"
+                    >
+                      {deletingReportId === report.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
+          )}
+        </section>
+
+        <section className="mt-8 border-t border-slate-200 pt-6 dark:border-slate-800">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Delete account and data</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+            This permanently deletes your Firebase account and all reports stored under it. You will need to confirm your current sign-in method.
+          </p>
+          {!showDeleteAccount ? (
+            <button
+              type="button"
+              onClick={() => { setShowDeleteAccount(true); setDeleteError(""); }}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40"
+            >
+              <Trash2 className="h-4 w-4" /> Delete account and reports
+            </button>
+          ) : (
+            <form onSubmit={handleDeleteAccount} className="mt-4 max-w-lg space-y-3">
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                Current password, for email/password accounts
+                <input
+                  type="password"
+                  value={accountPassword}
+                  onChange={(event) => setAccountPassword(event.target.value)}
+                  autoComplete="current-password"
+                  className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-normal text-slate-900 outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-600/15 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                />
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Google accounts will be asked to reauthenticate with Google instead.</p>
+              <div className="flex flex-wrap gap-3">
+                <button type="submit" disabled={isDeletingAccount} className="inline-flex items-center gap-2 rounded-lg bg-red-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-800 disabled:cursor-wait disabled:opacity-60">
+                  {isDeletingAccount && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Permanently delete account
+                </button>
+                <button type="button" disabled={isDeletingAccount} onClick={() => { setShowDeleteAccount(false); setAccountPassword(""); setDeleteError(""); }} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                  Cancel
+                </button>
+              </div>
+            </form>
           )}
         </section>
       </div>

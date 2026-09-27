@@ -1,9 +1,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { createUserWithEmailAndPassword, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut as firebaseSignOut, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, deleteUser as firebaseDeleteUser, EmailAuthProvider, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, reauthenticateWithCredential, reauthenticateWithPopup, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut as firebaseSignOut, updateProfile } from "firebase/auth";
+import { collection, getDocs, writeBatch } from "firebase/firestore";
 import type { PublicUser } from "./types";
-import { firebaseAuth } from "./firebase";
+import { firebaseAuth, firestore } from "./firebase";
 
 interface AuthResult {
   error: string | null;
@@ -17,6 +18,7 @@ interface AuthContextValue {
   resetPassword: (email: string) => Promise<AuthResult>;
   signInWithGoogle: () => Promise<AuthResult>;
   register: (name: string, email: string, password: string) => Promise<AuthResult>;
+  deleteAccount: (password?: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
 }
 
@@ -66,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (code.includes("popup-closed-by-user")) return "The Google sign-in window was closed before authentication finished.";
     if (code.includes("invalid-api-key") || code.includes("app-not-authorized")) return "The Firebase web configuration is invalid. Check the Firebase API key and app ID.";
     if (code.includes("network-request-failed")) return "Firebase could not connect. Check your internet connection and try again.";
+    if (code.includes("requires-recent-login")) return "Please sign in again before deleting your account.";
     return code ? `Firebase authentication failed (${code}). Check Firebase Authentication settings.` : "Unable to authenticate right now. Please try again.";
   };
 
@@ -134,11 +137,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deleteAccount = async (password?: string) => {
+    const firebaseUser = firebaseAuth.currentUser;
+    if (!firebaseUser || !firebaseUser.email) {
+      return { error: "Sign in again before deleting your account.", notice: null };
+    }
+
+    let reportsMayHaveBeenDeleted = false;
+    try {
+      const providerIds = firebaseUser.providerData.map((provider) => provider.providerId);
+      if (providerIds.includes("google.com")) {
+        await reauthenticateWithPopup(firebaseUser, new GoogleAuthProvider());
+      } else if (providerIds.includes("password")) {
+        if (!password) return { error: "Enter your current password to confirm account deletion.", notice: null };
+        const credential = EmailAuthProvider.credential(firebaseUser.email, password);
+        await reauthenticateWithCredential(firebaseUser, credential);
+      } else {
+        return { error: "This sign-in method cannot reauthenticate account deletion here. Contact support.", notice: null };
+      }
+
+      const reportSnapshot = await getDocs(collection(firestore, "users", firebaseUser.uid, "reports"));
+      for (let offset = 0; offset < reportSnapshot.docs.length; offset += 450) {
+        const batch = writeBatch(firestore);
+        reportSnapshot.docs.slice(offset, offset + 450).forEach((report) => batch.delete(report.ref));
+        await batch.commit();
+        reportsMayHaveBeenDeleted = true;
+      }
+
+      await firebaseDeleteUser(firebaseUser);
+      return { error: null, notice: null };
+    } catch (error) {
+      if (reportsMayHaveBeenDeleted) {
+        return { error: "Some or all of your reports were deleted, but account deletion could not finish. Retry deletion or contact support.", notice: null };
+      }
+      return { error: firebaseErrorMessage(error), notice: null };
+    }
+  };
+
   const signOut = async () => {
     await firebaseSignOut(firebaseAuth);
   };
 
-  return <AuthContext.Provider value={{ user, isLoading, signIn, resetPassword, signInWithGoogle, register, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, isLoading, signIn, resetPassword, signInWithGoogle, register, deleteAccount, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

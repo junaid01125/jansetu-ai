@@ -383,7 +383,13 @@ export default function ReportIssuePage() {
       const response = await fetch('/api/ai/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportText: reportText || "General issue reported", mediaType: captureMode, existingReports: reports }),
+        body: JSON.stringify({
+          reportText: reportText || "General issue reported",
+          mediaType: captureMode,
+          existingReports: reports.map((report) => ({
+            aiAnalysis: report.aiAnalysis ? { issueCategory: report.aiAnalysis.issueCategory } : undefined,
+          })),
+        }),
       });
       if (!response.ok) throw new Error('Analysis failed');
       const data = await response.json() as { analysis: AIAnalysis };
@@ -712,6 +718,10 @@ export default function ReportIssuePage() {
                   className="w-full bg-slate-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-xl p-4 min-h-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-cyan-500/30 transition-all text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500"
                 />
               </div>
+
+              <p className="text-xs leading-5 text-gray-500 dark:text-slate-400">
+                Your report description, location, and analysis are stored in Firebase under your account. The description is sent to Gemini for analysis. Media files are not uploaded to our servers. You can permanently delete reports or your account from Profile.
+              </p>
 
               <div className="mt-8 flex justify-end">
                 <button 
