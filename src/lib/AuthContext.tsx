@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createUserWithEmailAndPassword, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut as firebaseSignOut, updateProfile } from "firebase/auth";
 import type { PublicUser } from "./types";
 import { firebaseAuth } from "./firebase";
@@ -25,12 +25,24 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<PublicUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const allowUnverifiedDuringAuthFlow = useRef(false);
 
   useEffect(() => {
     getRedirectResult(firebaseAuth).catch((error) => {
       console.error("Firebase redirect authentication error:", error?.code || error);
     });
-    return onAuthStateChanged(firebaseAuth, (firebaseUser) => {
+    return onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+      if (firebaseUser && !firebaseUser.emailVerified) {
+        setUser(null);
+        if (!allowUnverifiedDuringAuthFlow.current) {
+          await firebaseSignOut(firebaseAuth).catch((error) => {
+            console.error("Unable to sign out unverified Firebase user:", error);
+          });
+        }
+        setIsLoading(false);
+        return;
+      }
+
       setUser(firebaseUser ? {
         id: firebaseUser.uid,
         name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Citizen",
@@ -58,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    allowUnverifiedDuringAuthFlow.current = true;
     try {
       const credential = await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
       if (!credential.user.emailVerified) {
@@ -67,11 +80,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return { error: null, notice: null };
     } catch (error) {
+      if (firebaseAuth.currentUser && !firebaseAuth.currentUser.emailVerified) {
+        await firebaseSignOut(firebaseAuth).catch(() => undefined);
+      }
       return { error: firebaseErrorMessage(error), notice: null };
+    } finally {
+      allowUnverifiedDuringAuthFlow.current = false;
     }
   };
 
   const register = async (name: string, email: string, password: string) => {
+    allowUnverifiedDuringAuthFlow.current = true;
     try {
       const credential = await createUserWithEmailAndPassword(firebaseAuth, email.trim(), password);
       await updateProfile(credential.user, { displayName: name.trim() });
@@ -79,7 +98,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await firebaseSignOut(firebaseAuth);
       return { error: null, notice: "Registration is pending email verification. We sent a verification link to this address. The account cannot be used until you verify it; check that the address is correct and look in your spam folder if the message does not arrive." };
     } catch (error) {
+      if (firebaseAuth.currentUser && !firebaseAuth.currentUser.emailVerified) {
+        await firebaseSignOut(firebaseAuth).catch(() => undefined);
+      }
       return { error: firebaseErrorMessage(error), notice: null };
+    } finally {
+      allowUnverifiedDuringAuthFlow.current = false;
     }
   };
 
