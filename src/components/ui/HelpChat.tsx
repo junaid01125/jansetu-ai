@@ -81,7 +81,7 @@ export default function HelpChat() {
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages.filter((_, index) => index !== 0).slice(-12).map(({ role, content: messageContent }) => ({ role, content: messageContent })) }),
+        body: JSON.stringify({ messages: nextMessages.slice(-12).map(({ role, content: messageContent }) => ({ role, content: messageContent })) }),
       });
       const result = await response.json() as { answer?: string; destination?: Destination | null; error?: string };
       if (!response.ok || !result.answer) throw new Error(result.error || text.error);
