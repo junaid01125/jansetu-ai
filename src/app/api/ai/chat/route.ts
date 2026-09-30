@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
   try {
     let response: Response | undefined;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
       response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
         {
@@ -68,8 +68,13 @@ export async function POST(request: Request) {
         cache: "no-store",
         }
       );
-      if (response.ok || ![429, 500, 502, 503, 504].includes(response.status) || attempt === 2) break;
-      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+      if (response.ok || ![429, 500, 502, 503, 504].includes(response.status) || attempt === 3) break;
+      const retryAfter = response.headers.get("retry-after");
+      const retryAfterSeconds = retryAfter ? Number(retryAfter) : Number.NaN;
+      const retryAfterDate = retryAfter && !Number.isFinite(retryAfterSeconds) ? Date.parse(retryAfter) - Date.now() : 0;
+      const retryAfterMs = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : retryAfterDate;
+      const delay = retryAfterMs > 0 ? Math.min(retryAfterMs, 3000) : Math.min(500 * 2 ** attempt, 3000);
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
     if (!response) throw new Error("Gemini request did not return a response");
     if (!response.ok) {
