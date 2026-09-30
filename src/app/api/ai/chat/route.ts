@@ -38,43 +38,50 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "The AI assistant is not configured. Add GEMINI_API_KEY to the server environment and restart the app." }, { status: 503 });
   }
   const model = process.env.GEMINI_CHAT_MODEL || "gemini-3.8-flash";
+  const models = [...new Set([model, "gemini-3.5-flash"])];
+  const retryableStatuses = [429, 500, 502, 503, 504];
 
   try {
     let response: Response | undefined;
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: "You are JanSetu AI, a concise, friendly guide to this civic issue reporting website. Explain workflows clearly: citizens can submit text or media reports, review AI category/severity/priority analysis, submit reports, and track their own reports from Profile. The Government dashboard shows reports and a map. The Policymaker page summarizes demand and policy insights. Priority is a triage aid based on severity, people affected, immediate safety/urgency, and repeated local reports; a human should review urgent or uncertain issues. Do not claim you can see a user's account, private report, live status, or perform actions. Never ask for passwords, verification codes, or API keys. Reply in the user's language when clear. Return JSON with an answer and a destination chosen only from /, /report, /dashboard, /policymaker, /profile, /login, or the string none. Choose the most useful destination only when relevant; use none otherwise." }],
-          },
-          contents: messages.map((message) => ({ role: message.role === "assistant" ? "model" : "user", parts: [{ text: message.content }] })),
-          generationConfig: {
-            temperature: 0.35,
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "OBJECT",
-              properties: {
-                answer: { type: "STRING" },
-                destination: { type: "STRING", enum: [...destinations, "none"] },
+    for (const [modelIndex, candidateModel] of models.entries()) {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(candidateModel)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              system_instruction: {
+                parts: [{ text: "You are JanSetu AI, a concise, friendly guide to this civic issue reporting website. Explain workflows clearly: citizens can submit text or media reports, review AI category/severity/priority analysis, submit reports, and track their own reports from Profile. The Government dashboard shows reports and a map. The Policymaker page summarizes demand and policy insights. Priority is a triage aid based on severity, people affected, immediate safety/urgency, and repeated local reports; a human should review urgent or uncertain issues. Do not claim you can see a user's account, private report, live status, or perform actions. Never ask for passwords, verification codes, or API keys. Reply in the user's language when clear. Return JSON with an answer and a destination chosen only from /, /report, /dashboard, /policymaker, /profile, /login, or the string none. Choose the most useful destination only when relevant; use none otherwise." }],
+                },
+              contents: messages.map((message) => ({ role: message.role === "assistant" ? "model" : "user", parts: [{ text: message.content }] })),
+              generationConfig: {
+                temperature: 0.35,
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: "OBJECT",
+                  properties: {
+                    answer: { type: "STRING" },
+                    destination: { type: "STRING", enum: [...destinations, "none"] },
+                  },
+                  required: ["answer", "destination"],
+                },
               },
-              required: ["answer", "destination"],
-            },
-          },
-        }),
-        cache: "no-store",
-        }
-      );
-      if (response.ok || ![429, 500, 502, 503, 504].includes(response.status) || attempt === 3) break;
-      const retryAfter = response.headers.get("retry-after");
-      const retryAfterSeconds = retryAfter ? Number(retryAfter) : Number.NaN;
-      const retryAfterDate = retryAfter && !Number.isFinite(retryAfterSeconds) ? Date.parse(retryAfter) - Date.now() : 0;
-      const retryAfterMs = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : retryAfterDate;
-      const delay = retryAfterMs > 0 ? Math.min(retryAfterMs, 3000) : Math.min(500 * 2 ** attempt, 3000);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+            }),
+            cache: "no-store",
+          }
+        );
+        if (response.ok || !retryableStatuses.includes(response.status)) break;
+        if ([429, 503].includes(response.status) && modelIndex < models.length - 1) break;
+        if (attempt === 3) break;
+        const retryAfter = response.headers.get("retry-after");
+        const retryAfterSeconds = retryAfter ? Number(retryAfter) : Number.NaN;
+        const retryAfterDate = retryAfter && !Number.isFinite(retryAfterSeconds) ? Date.parse(retryAfter) - Date.now() : 0;
+        const retryAfterMs = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : retryAfterDate;
+        const delay = retryAfterMs > 0 ? Math.min(retryAfterMs, 3000) : Math.min(500 * 2 ** attempt, 3000);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+      if (!response || response.ok || !retryableStatuses.includes(response.status) || modelIndex === models.length - 1) break;
     }
     if (!response) throw new Error("Gemini request did not return a response");
     if (!response.ok) {
